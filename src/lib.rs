@@ -1,25 +1,25 @@
-//! # lil-ecs
+//! # embla-ecs
 //!
-//! lil-ecs is a little entity component system with a little API.
+//! embla-ecs is a little entity component system with a little API.
 //!
 //! It is intended to be used for small jam-style games, and specifically for wasm projects.As such, the focus is not primarily on performance, but on providing a simple API that's easy to iterate with.
 //!
-//! ## lil-ecs should be:
+//! ## embla-ecs should be:
 //! * Simple to use
 //! * Single-threaded
 //! * Reasonably performant
 //!
-//! ## lil-ecs is *not* intended to be:
+//! ## embla-ecs is *not* intended to be:
 //! * as featureful as other more mature ECS libraries
 //! * as performant as other ECS libraries
 //! * multi-threaded (until supported by wasm)
 //!
 //! ## panics
-//! To keep the API simple, lil-ecs will currently panic if components are locked in multiple places. To avoid encountering this:
+//! To keep the API simple, embla-ecs will currently panic if components are locked in multiple places. To avoid encountering this:
 //!  * Don't keep multiple iterators over overlapping component sets
 //!  * Don't insert or remove components while iterating over components
 //!
-//! lil-ecs will also panic if any attempt is made to insert, remove, or iterate on an unregistered component
+//! embla-ecs will also panic if any attempt is made to insert, remove, or iterate on an unregistered component
 
 use std::any::TypeId;
 use std::cell::{Ref, RefCell, RefMut};
@@ -30,7 +30,7 @@ mod component;
 
 use component::{ComponentSet, ComponentStorage, GenericComponentStorage};
 
-/// Error type of lil-ecs.
+/// Error type of embla-ecs.
 ///
 /// A very simple error type with only a few kinds of errors.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
