@@ -57,6 +57,12 @@ impl fmt::Display for Error {
     }
 }
 
+impl std::error::Error for Error {
+    fn cause(&self) -> Option<&std::error::Error> {
+        None
+    }
+}
+
 /// A unique reference to an entity living in the World
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Entity {
