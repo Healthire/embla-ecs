@@ -69,14 +69,11 @@ impl<T: 'static> GenericComponentStorage for ComponentStorage<T> {
 }
 
 pub trait ComponentSet<'a> {
-    type IterItem;
+    type Refs;
 
     fn iter(
         storage: &'a HashMap<TypeId, RefCell<Box<GenericComponentStorage>>>,
-    ) -> Box<Iterator<Item = Self::IterItem> + 'a>;
-    fn indexed(
-        storage: &'a HashMap<TypeId, RefCell<Box<GenericComponentStorage>>>,
-    ) -> Box<Iterator<Item = (usize, Self::IterItem)> + 'a>;
+    ) -> Box<Iterator<Item = (usize, Self::Refs)> + 'a>;
 }
 
 macro_rules! replace_expr {
@@ -85,98 +82,52 @@ macro_rules! replace_expr {
     };
 }
 
-macro_rules! scan_next {
-    ($start:expr, $($c:expr),*) => {
-        {
-            let component_count = 0 $(+ replace_expr!($c 1))*;
-            let mut entity = $start;
-            let mut entity_count = 0;
-            let next_e = loop {
-                $(
-                    if let Some(e) = $c.next_entry(entity) {
-                        if e != entity {
-                            entity_count = 0;
-                        }
-                        entity_count += 1;
-                        entity = e;
-                    } else {
-                        break None;
-                    }
-
-                    if entity_count == component_count {
-                        break Some(entity);
-                    }
-                )*
-                entity += 1;
-            };
-            next_e
-        }
-    }
-}
-
 macro_rules! implement_tuple_set {
     ($($x:ident:$xn:ident),*) => {
         impl<'a, $($x: 'static,)*> ComponentSet<'a> for ($($x,)*) {
-            type IterItem = ($(&'a mut $x,)*);
+            type Refs = ($(&'a mut $x,)*);
 
             fn iter(
                 storage: &'a HashMap<TypeId, RefCell<Box<GenericComponentStorage>>>
-            ) -> Box<Iterator<Item = Self::IterItem> + 'a> {
+            ) -> Box<Iterator<Item = (usize, Self::Refs)> + 'a> {
 
                 struct ComponentIterator<'a, $($x: 'a),*> {
                     index: usize,
                     $($xn: (RefMut<'a, ComponentStorage<$x>>)),*
                 }
                 impl<'a, $($x: 'static),*> Iterator for ComponentIterator<'a, $($x),*> {
-                    type Item = ($(&'a mut $x,)*);
+                    type Item = (usize, ($(&'a mut $x,)*));
 
                     fn next(&mut self) -> Option<Self::Item> {
-                        if let Some(e) = scan_next!(self.index, $(self.$xn),*) {
+                        let component_count = 0 $(+ replace_expr!($x 1))*;
+                        let mut entity = self.index;
+                        let mut entity_count = 0;
+                        let next_entity = loop {
+                            $(
+                                if let Some(e) = self.$xn.next_entry(entity) {
+                                    if e != entity {
+                                        entity_count = 0;
+                                    }
+                                    entity_count += 1;
+                                    entity = e;
+                                } else {
+                                    break None;
+                                }
+
+                                if entity_count == component_count {
+                                    break Some(entity);
+                                }
+                            )*
+                            entity += 1;
+                        };
+
+                        if let Some(e) = next_entity {
                             self.index = e + 1;
 
                             // we can transmute the lifetime of the references to the lifetime of the iterator because:
                             // * this iterator holds a mutable reference to the component storage, guaranteeing there are no
                             //   other references to the storage or any component entry in the storage
                             // * the iterator can return only one mutable reference to each unique component entry
-                            unsafe {
-                                Some((
-                                    $(mem::transmute::<&mut $x, &'a mut $x>(self.$xn.get_mut(e).unwrap()),)+
-                                ))
-                            }
-                        } else {
-                            None
-                        }
-
-                    }
-                }
-
-                Box::new(
-                    ComponentIterator {
-                        index: 0,
-                        $($xn: RefMut::map(
-                            storage.get(&TypeId::of::<$x>()).expect("component not registered").borrow_mut(),
-                            |s| s.as_any_mut().downcast_mut::<ComponentStorage<$x>>().unwrap()
-                        )),*
-                    }
-                )
-            }
-
-            fn indexed(
-                storage: &'a HashMap<TypeId, RefCell<Box<GenericComponentStorage>>>
-            ) -> Box<Iterator<Item = (usize, Self::IterItem)> + 'a> {
-
-                struct IndexedComponentIterator<'a, $($x: 'a),*> {
-                    index: usize,
-                    $($xn: (RefMut<'a, ComponentStorage<$x>>)),*
-                }
-                impl<'a, $($x: 'static),*> Iterator for IndexedComponentIterator<'a, $($x),*> {
-                    type Item = (usize, ($(&'a mut $x,)*));
-
-                    fn next(&mut self) -> Option<Self::Item> {
-                        if let Some(e) = scan_next!(self.index, $(self.$xn),*) {
-                            self.index = e + 1;
-
-                            // see iter() implementation for the mem::transmute reasoning
                             unsafe {
                                 Some((
                                     e,
@@ -193,7 +144,7 @@ macro_rules! implement_tuple_set {
                 }
 
                 Box::new(
-                    IndexedComponentIterator {
+                    ComponentIterator {
                         index: 0,
                         $($xn: RefMut::map(
                             storage.get(&TypeId::of::<$x>()).expect("component not registered").borrow_mut(),

@@ -116,7 +116,7 @@ impl<'a> EntityEntry<'a> {
 /// # Usage:
 ///
 /// ```rust
-/// use lil_ecs::{World, Error};
+/// use embla_ecs::{World, Error};
 ///
 /// struct Position(i32, i32);
 /// struct Velocity(i32, i32);
@@ -257,8 +257,8 @@ impl World {
     ///
     /// # Panics
     /// Panics if any of the components are not registered, or if any of the components are locked elsewhere.
-    pub fn iter<'a, C: ComponentSet<'a>>(&'a self) -> Box<Iterator<Item = C::IterItem> + 'a> {
-        C::iter(&self.components)
+    pub fn iter<'a, C: ComponentSet<'a> + 'static>(&'a self) -> Box<Iterator<Item = C::Refs> + 'a> {
+        Box::new(C::iter(&self.components).map(|(_, cs)| cs))
     }
 
     /// Iterates over a ComponentSet and also provides the Entity for which the components belong
@@ -271,9 +271,9 @@ impl World {
     /// Panics if any of the components are not registered, or if any of the components are locked elsewhere.
     pub fn iter_entities<'a, C: ComponentSet<'a> + 'static>(
         &'a self,
-    ) -> Box<Iterator<Item = (Entity, C::IterItem)> + 'a> {
+    ) -> Box<Iterator<Item = (Entity, C::Refs)> + 'a> {
         let entities = &self.entities;
-        Box::new(C::indexed(&self.components).map(move |(e, cs)| {
+        Box::new(C::iter(&self.components).map(move |(e, cs)| {
             (
                 Entity {
                     index: e,
