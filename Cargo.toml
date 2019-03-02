@@ -1,5 +1,5 @@
 [package]
-name = "lil-ecs"
+name = "embla-ecs"
 version = "0.1.0"
 authors = ["William Lundstedt <bananavice@gmail.com>"]
 edition = "2018"
